@@ -1,0 +1,66 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: capstone-cicd-pipeline-app
+
+jobs:
+  build-and-deploy:
+    runs-on: [self-hosted]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get web server instance ID
+        id: web-instance
+        run: |
+          echo "id=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=capstone-cicd-pipeline-web-server" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text \
+            --region $AWS_REGION)" >> "$GITHUB_OUTPUT"
+
+      - name: Create ECR repository if it doesn't exist
+        run: |
+          aws ecr describe-repositories \
+            --repository-names $ECR_REPOSITORY \
+            --region $AWS_REGION 2>/dev/null || \
+          aws ecr create-repository \
+            --repository-name $ECR_REPOSITORY \
+            --region $AWS_REGION
+
+      - name: Get ECR registry URI
+        id: ecr-uri
+        run: |
+          echo "registry=$(aws ecr describe-repositories \
+            --repository-names $ECR_REPOSITORY \
+            --query 'repositories[0].repositoryUri' --output text \
+            | cut -d/ -f1)" >> "$GITHUB_OUTPUT"
+          echo "image=$(aws ecr describe-repositories \
+            --repository-names $ECR_REPOSITORY \
+            --query 'repositories[0].repositoryUri' --output text)" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Log in to ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | \
+            docker login --username AWS --password-stdin \
+            ${{ steps.ecr-uri.outputs.registry }}
+
+      - name: Build and push image
+        run: |
+          docker build -t ${{ steps.ecr-uri.outputs.image }}:${{ github.sha }} ./app
+          docker push ${{ steps.ecr-uri.outputs.image }}:${{ github.sha }}
+
+      - name: Deploy to web server
+        run: |
+          python3 scripts/deploy.py \
+            --instance-id ${{ steps.web-instance.outputs.id }} \
+            --image-uri ${{ steps.ecr-uri.outputs.image }}:${{ github.sha }} \
+            --region $AWS_REGION

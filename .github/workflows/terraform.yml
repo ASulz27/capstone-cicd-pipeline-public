@@ -1,0 +1,50 @@
+name: Terraform
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    paths-ignore:
+      - '**.md'
+    branches: [main]
+
+env:
+  TF_INPUT: "false"
+  TF_IN_AUTOMATION: "true"
+  TF_VAR_admin_cidr: ${{ vars.ADMIN_CIDR }}
+
+concurrency:
+  group: terraform
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - run: terraform init
+      - run: terraform plan -no-color
+
+  apply:
+    if: github.event_name == 'push'
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - run: terraform init
+      - run: terraform apply -auto-approve

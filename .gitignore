@@ -1,0 +1,17 @@
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+*.auto.tfvars
+tfplan
+build/
+override.tf
+override.tf.json
+.DS_Store
+*.pem
+*.deb
+*tar.gz
+__pycache__/
+*.pyc
+backend.hcl
+*.tfvars
