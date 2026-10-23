@@ -14,6 +14,7 @@ nginx on the web server proxies port 80 to a gunicorn container on 127.0.0.1:500
 A small Flask app (app/) that returns {"message":"Hello from the pipeline!","version":"v1"} on /.
 An ECR repository for the app image (scan on push; images tagged with the commit SHA).
 Remote Terraform state in S3 with DynamoDB locking.
+
 2. Architecture
  push to main
       |
