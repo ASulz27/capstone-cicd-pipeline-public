@@ -29,9 +29,6 @@ resource "aws_iam_role" "web_role" {
   name               = "${var.project_name}-web-role"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
 
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 resource "aws_iam_role_policy_attachment" "web_ssm" {
